@@ -1,0 +1,42 @@
+# Builds the Windows and macOS apps on GitHub's computers (free).
+# Actions -> "Build AAB to APK" -> Run workflow. Download zips from "Artifacts".
+name: Build AAB to APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - name: Build
+        shell: pwsh
+        run: ./build_windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AAB-to-APK-Windows
+          path: dist/AAB-to-APK-Windows.zip
+
+  macos:
+    runs-on: macos-latest   # Apple Silicon build; Intel Macs: run build_mac.sh locally
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - name: Build
+        run: |
+          sed -i '' 's/^open dist$/true/' build_mac.sh
+          bash build_mac.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AAB-to-APK-macOS
+          path: dist/AAB-to-APK-macOS.zip
