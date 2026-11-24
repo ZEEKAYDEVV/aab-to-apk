@@ -1,0 +1,44 @@
+# After every "Build AAB to APK" run, publish the zips on the Releases page
+# so the team can download them from one link.
+name: Publish download page
+
+on:
+  workflow_run:
+    workflows: ["Build AAB to APK"]
+    types: [completed]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: artifacts
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN: ${{ github.event.workflow_run.run_number }}
+        run: |
+          ls -la artifacts || true
+          shopt -s nullglob
+          FILES=(artifacts/*.zip)
+          if [ ${#FILES[@]} -eq 0 ]; then echo "No zips to publish"; exit 1; fi
+          cat > notes.md <<'EOF'
+          ## Download
+          - **Windows:** AAB-to-APK-Windows.zip -> unzip -> open AAB to APK.exe
+          - **Mac (Apple Silicon):** AAB-to-APK-macOS.zip -> unzip -> right-click the app -> Open
+
+          Pick your .aab file(s) and the .apk is created next to them. No Java or keystore needed.
+
+          First launch: Windows may say "Windows protected your PC" -> More info -> Run anyway.
+          EOF
+          gh release create "build-$RUN" "${FILES[@]}" --title "AAB to APK - build $RUN" --notes-file notes.md --latest
